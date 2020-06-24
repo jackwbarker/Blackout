@@ -20,17 +20,12 @@ criterion = nn.MSELoss()
 from torch.autograd import Variable
 
 for i, (img, label) in enumerate(loader) :
+
     #generate the attention regions for the images
-    grad_img = Variable(img.cuda(), requires_grad=True)
+    saliency = utilities.compute_saliency_maps(img, model)
 
-    output = model(grad_img)
-    loss = criterion(grad_img, output)
-    loss.backward()
-
-
-    saliency = torch.abs(grad_img.grad)
-    saliency, _ = torch.max(saliency, 1)
-
+    utilities.show_saliency_maps(saliency)
+    break
 
     #apply the blackout on the attention regions
 
