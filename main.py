@@ -1,8 +1,9 @@
 import config, utilities
-from torchvision import datasets
+from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-from torch import nn
+from torch import nn, optim
 import torch
+from tqdm import tqdm
 
 from model import VQVAE
 
@@ -10,33 +11,48 @@ args = config.get_args()
 transform = config.get_transform()
 
 dataset = datasets.ImageFolder(args.path, transform=transform)
-loader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0)
+loader = DataLoader(dataset, batch_size=args.batch, shuffle=True, num_workers=0)
 
 model = VQVAE()
 model = model.cuda()
 
 criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
 from torch.autograd import Variable
 
-for i, (img, label) in enumerate(loader) :
 
-    #generate the attention regions for the images
-    saliency = utilities.compute_saliency_maps(img, model)
-    normalised = utilities.normalise_saliency(saliency)
-    blackout_img = img.clone()
+for epoch in range(args.epoch):
 
-    utilities.show_tensor(blackout_img[0])
+    loader = tqdm(loader)
+    
+    for i, (img, _) in enumerate(loader) :
+        img = img.cuda()
 
-    blackout_img = blackout_img.cuda()
+        #generate the attention regions for the images
+        saliency = utilities.compute_saliency_maps(img, model)
 
-    #apply the blackout on the attention regions
-    for i in range(len(blackout_img)):
-        blackout_img[i][0] = torch.mul(normalised[0], blackout_img[i][0])
-        blackout_img[i][1]=torch.mul(normalised[0], blackout_img[i][1])
-        blackout_img[i][2]= torch.mul(normalised[0], blackout_img[i][2])
+        norm = transforms.Normalize((-1,-1,-1), (2,2,2))
 
-    utilities.show_saliency_maps(saliency[0])
-    utilities.show_saliency_maps(normalised[0])
-    utilities.show_tensor(blackout_img[0])
+        blackout_img = img.clone()
+
+        for i in range(len(saliency)):
+            normalised = norm(saliency[i])
+            blackout_img[i] = torch.mul(normalised, img[i])
+
+
+        #train model here
+        model.train()
+        model.zero_grad()
+        output = model(blackout_img)
+        loss = criterion(img, output)
+
+        loss.backward()
+        optimizer.step()
+
+    print("EPOCH: ", epoch+1, "Loss: ", loss)
+    torch.save(model.state_dict(), "Models/toy/"+str(epoch+1)+ ".pt")
+    utilities.show_tensor(img[0], False, _)
+    utilities.show_tensor(output[0], False, _)
+
 

@@ -3,7 +3,8 @@ from torchvision import transforms
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--size', type=int, default=256)
-parser.add_argument('--epoch', type=int, default=560)
+parser.add_argument('--epoch', type=int, default=10)
+parser.add_argument("--batch", type=int, default=15)
 parser.add_argument('--lr', type=float, default=3e-4)
 parser.add_argument('--sched', type=str)
 parser.add_argument('--device', type=str, default = 'cuda')
